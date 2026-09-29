@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WATCHBOT · Study assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E6EDF1; --grid:#D3DEE5; --card:#FBFCFD; --ink:#12202B; --muted:#5B6B78;
+  --line:#C9D5DD; --hand:#F0511C; --steel:#2F4A5E; --bot:#EEF3F6;
+  --display:"Bricolage Grotesque","Trebuchet MS",sans-serif;
+  --body:"Figtree","Segoe UI",Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{
+  font-family:var(--body);color:var(--ink);background-color:var(--paper);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:28px 28px;display:flex;justify-content:center;padding:20px;
+}
+.app{width:100%;max-width:820px;height:calc(100vh - 40px);height:calc(100dvh - 40px);display:flex;flex-direction:column;
+  background:var(--card);border:2px solid var(--ink);border-radius:22px;overflow:hidden;box-shadow:8px 8px 0 var(--ink)}
+
+header{display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:2px solid var(--ink);background:var(--card)}
+.dial{width:58px;height:58px;flex:none}
+.dial circle.face{fill:var(--card);stroke:var(--ink);stroke-width:3}
+.dial .tick{stroke:var(--ink);stroke-width:2;stroke-linecap:round}
+.dial .h,.dial .m{stroke:var(--ink);stroke-linecap:round}
+.dial .s{stroke:var(--hand);stroke-width:2;stroke-linecap:round}
+.dial .pin{fill:var(--hand)}
+.title h1{font-family:var(--display);font-weight:800;font-size:1.7rem;letter-spacing:.04em;line-height:1}
+.title p{font-size:.88rem;color:var(--muted);margin-top:4px}
+.session{margin-left:auto;text-align:right;font-size:.8rem;color:var(--muted)}
+.session b{display:block;font-family:var(--display);font-size:1.25rem;color:var(--ink);font-variant-numeric:tabular-nums}
+
+#log{flex:1;overflow-y:auto;padding:22px 20px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth}
+.empty{margin:auto 0;max-width:520px}
+.empty h2{font-family:var(--display);font-size:1.9rem;line-height:1.15;margin-bottom:8px}
+.empty p{color:var(--muted);line-height:1.5;margin-bottom:18px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:500 .9rem var(--body);color:var(--ink);background:var(--card);border:1.5px solid var(--ink);border-radius:999px;padding:8px 14px;cursor:pointer;transition:background .15s,color .15s}
+.chip:hover{background:var(--ink);color:var(--card)}
+
+.msg{max-width:88%;line-height:1.6;font-size:.98rem;overflow-wrap:anywhere}
+.msg.user{align-self:flex-end;background:var(--ink);color:var(--card);padding:10px 16px;border-radius:18px 18px 4px 18px}
+.msg.bot{align-self:flex-start;background:var(--bot);padding:12px 16px 12px 18px;border-radius:4px 18px 18px 18px;border-left:4px solid var(--hand)}
+.msg.err{border-left-color:var(--steel);color:var(--steel)}
+.msg p+p,.msg p+ul,.msg ul+p{margin-top:.6em}
+.msg ul{padding-left:1.2em}
+.msg code{background:#DCE6EC;padding:1px 6px;border-radius:5px;font-family:Consolas,Menlo,monospace;font-size:.88em}
+.msg pre{background:var(--ink);color:#E9F1F5;padding:12px 14px;border-radius:10px;overflow-x:auto;margin:.6em 0}
+.msg pre code{background:none;padding:0;color:inherit}
+
+.wait{display:flex;gap:5px;padding:4px 0}
+.wait i{width:8px;height:8px;border-radius:50%;background:var(--hand);animation:pulse 1s infinite ease-in-out}
+.wait i:nth-child(2){animation-delay:.15s}.wait i:nth-child(3){animation-delay:.3s}
+@keyframes pulse{0%,80%,100%{opacity:.25;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+
+form{display:flex;gap:10px;align-items:flex-end;padding:14px 16px;border-top:2px solid var(--ink);background:var(--card)}
+textarea{flex:1;resize:none;max-height:140px;font:400 1rem var(--body);color:var(--ink);background:var(--bot);
+  border:1.5px solid var(--line);border-radius:14px;padding:11px 14px;outline:none}
+textarea:focus{border-color:var(--ink)}
+button.send{font:600 1rem var(--display);color:#fff;background:var(--hand);border:2px solid var(--ink);border-radius:14px;padding:10px 20px;cursor:pointer;box-shadow:3px 3px 0 var(--ink);transition:transform .1s,box-shadow .1s}
+button.send:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
+button.send:disabled{opacity:.5;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--hand);outline-offset:2px}
+
+@media(max-width:560px){
+  body{padding:0}.app{height:100vh;height:100dvh;border-radius:0;border-width:0;box-shadow:none}
+  .session{display:none}.msg{max-width:94%}.empty h2{font-size:1.5rem}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main class="app">
+  <header>
+    <svg class="dial" viewBox="0 0 100 100" aria-hidden="true">
+      <circle class="face" cx="50" cy="50" r="46"/>
+      <g id="ticks"></g>
+      <line class="h" id="hh" x1="50" y1="50" x2="50" y2="28" stroke-width="5"/>
+      <line class="m" id="mm" x1="50" y1="50" x2="50" y2="18" stroke-width="3.5"/>
+      <line class="s" id="ss" x1="50" y1="58" x2="50" y2="12"/>
+      <circle class="pin" cx="50" cy="50" r="4"/>
+    </svg>
+    <div class="title">
+      <h1>WATCHBOT</h1>
+      <p>Your study assistant. Ask, revise, practise.</p>
+    </div>
+    <div class="session">Time studying<b id="timer">00:00</b></div>
+  </header>
+
+  <section id="log" aria-live="polite">
+    <div class="empty" id="empty">
+      <h2>What are we studying right now?</h2>
+      <p>Pick a starting point or type your own question. WATCHBOT only answers study-related questions.</p>
+      <div class="chips">
+        <button class="chip" type="button">Explain photosynthesis simply</button>
+        <button class="chip" type="button">Solve x² − 5x + 6 = 0 step by step</button>
+        <button class="chip" type="button">Make a 7-day revision plan for physics</button>
+        <button class="chip" type="button">Quiz me on the French Revolution</button>
+      </div>
+    </div>
+  </section>
+
+  <form id="form" autocomplete="off">
+    <textarea id="input" rows="1" maxlength="2000" placeholder="Ask a study question" aria-label="Your question"></textarea>
+    <button class="send" id="send" type="submit">Send</button>
+  </form>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const log = $("log"), form = $("form"), input = $("input"), sendBtn = $("send");
+const history = [];
+
+/* ---- analog dial + study timer ---- */
+const ticks = $("ticks");
+for (let i = 0; i < 12; i++) {
+  const a = i * Math.PI / 6, r1 = i % 3 ? 38 : 34, r2 = 41;
+  ticks.insertAdjacentHTML("beforeend",
+    `<line class="tick" x1="${50 + r1 * Math.sin(a)}" y1="${50 - r1 * Math.cos(a)}" x2="${50 + r2 * Math.sin(a)}" y2="${50 - r2 * Math.cos(a)}"/>`);
+}
+const started = Date.now();
+function tick() {
+  const d = new Date(), s = d.getSeconds(), m = d.getMinutes() + s / 60, h = (d.getHours() % 12) + m / 60;
+  $("ss").setAttribute("transform", `rotate(${s * 6} 50 50)`);
+  $("mm").setAttribute("transform", `rotate(${m * 6} 50 50)`);
+  $("hh").setAttribute("transform", `rotate(${h * 30} 50 50)`);
+  const t = Math.floor((Date.now() - started) / 1000), pad = n => String(n).padStart(2, "0");
+  $("timer").textContent = t >= 3600 ? `${Math.floor(t / 3600)}:${pad(Math.floor(t / 60) % 60)}:${pad(t % 60)}` : `${pad(Math.floor(t / 60))}:${pad(t % 60)}`;
+}
+tick(); setInterval(tick, 1000);
+
+/* ---- tiny safe markdown renderer ---- */
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function inline(s) {
+  return esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+}
+function render(md) {
+  const out = [];
+  md.split(/```(?:\w+)?\n?/).forEach((part, i) => {
+    if (i % 2) { out.push(`<pre><code>${esc(part.trim())}</code></pre>`); return; }
+    let list = false;
+    part.split("\n").forEach(line => {
+      const li = line.match(/^\s*(?:[-*•]|\d+\.)\s+(.*)/);
+      if (li) { if (!list) { out.push("<ul>"); list = true; } out.push(`<li>${inline(li[1])}</li>`); }
+      else { if (list) { out.push("</ul>"); list = false; } if (line.trim()) out.push(`<p>${inline(line)}</p>`); }
+    });
+    if (list) out.push("</ul>");
+  });
+  return out.join("");
+}
+
+/* ---- chat ---- */
+function add(role, html, extra = "") {
+  const el = document.createElement("div");
+  el.className = `msg ${role} ${extra}`;
+  el.innerHTML = html;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+  return el;
+}
+
+async function ask(text) {
+  text = text.trim();
+  if (!text || sendBtn.disabled) return;
+  const empty = $("empty"); if (empty) empty.remove();
+
+  add("user", `<p>${esc(text)}</p>`);
+  input.value = ""; input.style.height = "auto";
+  sendBtn.disabled = true;
+  const wait = add("bot", '<div class="wait"><i></i><i></i><i></i></div>');
+
+  try {
+    const res = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, history: history.slice(-12) })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Something went wrong.");
+    wait.innerHTML = render(data.reply);
+    history.push({ role: "user", text }, { role: "model", text: data.reply });
+  } catch (e) {
+    wait.classList.add("err");
+    wait.innerHTML = `<p>${esc(e.message)}</p>`;
+  } finally {
+    sendBtn.disabled = false; input.focus(); log.scrollTop = log.scrollHeight;
+  }
+}
+
+form.addEventListener("submit", e => { e.preventDefault(); ask(input.value); });
+input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(input.value); } });
+input.addEventListener("input", () => { input.style.height = "auto"; input.style.height = input.scrollHeight + "px"; });
+document.querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => ask(c.textContent)));
+</script>
+</body>
+</html>
